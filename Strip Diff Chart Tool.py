@@ -10,19 +10,26 @@ import dateutil.relativedelta
 import yfinance as yf
 import plotly.express as px
 import plotly.graph_objects as go
+import warnings
+
+import pandas as pd
+from pandas.core.common import SettingWithCopyWarning
+
+start_time = dt.now()
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 def __datetime(date_str):
     return dt.strptime(date_str, '%Y-%m-%d')
 
 def dividendDatesAdd():
-    dividendDatesStock1.append(prevDivDateStock1)
-    dividendDatesStock2.append(prevDivDateStock2)
+    dividendDatesStock1.append(df1['Date'][df1.index[0]])
+    dividendDatesStock2.append(df2['Date'][df2.index[0]])
     for x in ticker1.dividends.index:
-        if x >= start_date:
-            dividendDatesStock1.append(__datetime(str(x)[:10]))
+        dividendDatesStock1.append(__datetime(str(x)[:10]))
     for y in ticker2.dividends.index:
-        if y >= start_date:
-            dividendDatesStock2.append(__datetime(str(y)[:10]))
+        dividendDatesStock2.append(__datetime(str(y)[:10]))
 
 def resetIndex(df):
     df.reset_index(inplace=True)
@@ -50,75 +57,61 @@ def stripPrice(df):
 
 
 
-
-
 stock1 = input("Enter Stock 1 : ")
 ticker1 = yf.Ticker(stock1)
 stock2 = input("Enter Stock 2 : ")
 ticker2 = yf.Ticker(stock2)
 
-time_period = int(input("Historical Data Time Period (in months) : "))
-end_date = dt.today().date()
-
-start_date = end_date - dateutil.relativedelta.relativedelta(months=time_period)
+time_period = 12
 
 yf.pdr_override()
-data1 = pdr.get_data_yahoo(stock1, start=str(start_date), end=str(end_date))
+data1 = yf.download(stock1)
 
-data2 = pdr.get_data_yahoo(stock2, start=str(start_date), end=str(end_date))
+data2 = yf.download(stock2)
 
 df1 = pd.DataFrame(data1)
 df2 = pd.DataFrame(data2)
-
-dividendDatesStock1 = []
-dividendDatesStock2 = []
-
-
-
-
-divDates1 = []
-divDates2 = []
-
-for x in ticker1.dividends.index:
-    divDates1.append(__datetime(str(x)[:10]))
-
-for x in ticker2.dividends.index:
-    divDates2.append(__datetime(str(x)[:10]))
-    
-
-prevDivDateStock1 = ''
-prevDivDateStock2 = ''
-for i in range(len(divDates1)):
-    if divDates1[i].date() > start_date:
-        prevDivDateStock1 = divDates1[i-1]
-        break
-        
-for i in range(len(divDates2)):
-    if divDates2[i].date() > start_date:
-        prevDivDateStock2 = divDates2[i-1]
-        break
-
-
-
-dividendDatesAdd()
-
 resetIndex(df1)
 
 resetIndex(df2)
+
+start_date = df1['Date'][0] if df1['Date'].size < df2['Date'].size else df2['Date'][0]
+
+
+# df1['Date'][0]
+
+# start_date = __datetime(df1['Date'][0] if df1['Date'].size < df2['Date'].size else df2['Date'][0])
+
+
+dividendDatesStock1 = []
+dividendDatesStock2 = []
 
 df1['Accrual Days'] = ''
 df2['Accrual Days'] = ''
 
 for idx in df1.index:
     df1['Date'][idx] = __datetime(df1['Date'][idx])
+
+for idx in df2.index:
     df2['Date'][idx] = __datetime(df2['Date'][idx])
 
+
+dividendDatesAdd()
+
+def accrualDaysUpdate(df1,dividendDatesStock1):
+    for ind in df1.index:
+        cnt = -1
+
+        while (df1['Date'][df1.index[-1]-ind] < dividendDatesStock1[cnt]):
+            cnt = (cnt-1)%len(dividendDatesStock1)
+
+        df1['Accrual Days'][df1.index[-1]-ind] = (df1['Date'][df1.index[-1]-ind]-dividendDatesStock1[cnt]).days
 
 accrualDaysUpdate(df1,dividendDatesStock1)
 accrualDaysUpdate(df2,dividendDatesStock2)
 
-df1['Accrual'] = ''
-df2['Accrual'] = ''
+df1['Accrual'] = 0
+df2['Accrual'] = 0
 accrualsTillNow(df1,ticker1)
 accrualsTillNow(df2,ticker2)
 
@@ -129,24 +122,41 @@ stripPrice(df2)
 
 df_new = pd.DataFrame()
 
+flag = True
+temp = ''
 
-df_new['Date'] = ''
-df_new['Strip Price Diff'] = (df1['Strip Price']-df2['Strip Price'])
+if df1.size < df2.size:
+    flag = False
+    
+flag
 
+if flag :
+    df_new['Date'] = df2['Date']
+else :
+    df_new['Date'] = df1['Date']
 
-for idx in df1.index:
-    df_new['Date'][idx] = df1['Date'][idx].date()
+df_new['Strip Price'] = 0
+if flag:
+    i = 0
+    while df_new['Date'][0] != df1['Date'][i]:
+        i = i+1
+    
+    for j in range(i,df1['Strip Price'].size):
 
+        df_new['Strip Price'][j-i] = df1['Strip Price'][j] - df2['Strip Price'][j-i]
+else :
+    i = 0
+    while df_new['Date'][0] != df2['Date'][i]:
+        i = i+1
+    for j in range(i,df2['Strip Price'].size):
+        df_new['Strip Price'][j-i] = df1['Strip Price'][j-i] - df2['Strip Price'][j]
 
-# f = plt.figure()
-# f.set_figwidth(30)
-# f.set_figheight(15)
-# x = df_new['Date']
-# y = df_new['Strip Price Diff']
-# plt.plot(x,y)
-# plt.show()
+for i in df_new.index:
+    df_new['Date'][i] = df_new['Date'][i].date()
 
-c_area = px.area(x=df_new['Date'], y=df_new['Strip Price Diff'], title="PSA.PRO - USB.PQ")
+c_title = f"{ticker1.info['symbol']} - {ticker2.info['symbol']}"
+
+c_area = px.area(x=df_new['Date'], y=df_new['Strip Price'], title=c_title)
 
 c_area.update_xaxes(
     title_text = 'Date',
@@ -162,7 +172,7 @@ c_area.update_xaxes(
 c_area.update_yaxes(title_text = 'Price', tickprefix = '$')
 c_area.update_layout(showlegend = False,
     title = {
-        'text': 'PSA.PRO - USB.PQ',
+        'text': f"{ticker1.info['symbol']} - {ticker2.info['symbol']}",
         'y':0.9,
         'x':0.5,
         'xanchor': 'center',
@@ -176,15 +186,7 @@ accrual_diff
 
 
 for idx in df_new.index:
-    df_new['Diff + Accrual'][idx] = df_new['Strip Price Diff'][idx] + accrual_diff
-
-# f = plt.figure()
-# f.set_figwidth(30)
-# f.set_figheight(15)
-# x = df_new['Date']
-# y = df_new['Diff + Accrual']
-# plt.plot(x,y)
-# plt.show()
+    df_new['Diff + Accrual'][idx] = df_new['Strip Price'][idx] + accrual_diff
 
 c_area = px.area(x=df_new['Date'], y=df_new['Diff + Accrual'], title="PSA.PRO - USB.PQ")
 
@@ -202,7 +204,7 @@ c_area.update_xaxes(
 c_area.update_yaxes(title_text = 'Price', tickprefix = '$')
 c_area.update_layout(showlegend = False,
     title = {
-        'text': 'PSA.PRO - USB.PQ',
+        'text': f"{ticker1.info['symbol']} - {ticker2.info['symbol']} with Accrual Difference",
         'y':0.9,
         'x':0.5,
         'xanchor': 'center',
@@ -210,4 +212,6 @@ c_area.update_layout(showlegend = False,
 
 c_area.show()
 
-
+# do your work here
+end_time = dt.now()
+print('Duration: {}'.format(end_time - start_time))
