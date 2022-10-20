@@ -13,12 +13,13 @@ import plotly.graph_objects as go
 import warnings
 
 import pandas as pd
-from pandas.core.common import SettingWithCopyWarning
+# from pandas.core.common import SettingWithCopyWarning
 
 start_time = dt.now()
 
+pd.options.mode.chained_assignment = None
 warnings.simplefilter(action='ignore', category=FutureWarning)
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
+# warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 def __datetime(date_str):
     return dt.strptime(date_str, '%Y-%m-%d')
@@ -156,7 +157,7 @@ for i in df_new.index:
 
 c_title = f"{ticker1.info['symbol']} - {ticker2.info['symbol']}"
 
-c_area = px.area(x=df_new['Date'], y=df_new['Strip Price'], title=c_title)
+c_area = px.line(x=df_new['Date'], y=df_new['Strip Price'], title=c_title)
 
 c_area.update_xaxes(
     title_text = 'Date',
@@ -186,9 +187,9 @@ accrual_diff
 
 
 for idx in df_new.index:
-    df_new['Diff + Accrual'][idx] = df_new['Strip Price'][idx] + accrual_diff
+    df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
 
-c_area = px.area(x=df_new['Date'], y=df_new['Diff + Accrual'], title="PSA.PRO - USB.PQ")
+c_area = px.line(x=df_new['Date'], y=df_new['Diff + Accrual'], title="PSA.PRO - USB.PQ")
 
 c_area.update_xaxes(
     title_text = 'Date',
