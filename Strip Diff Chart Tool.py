@@ -230,3 +230,17 @@ c_area.show()
 # do your work here
 end_time = dt.now()
 print('Duration: {}'.format(end_time - start_time))
+
+time_period = int(input("Time Period (for median calculation) : "))
+q = 0
+for idx in df_new.index:
+    if df_new['Date'][idx] >= (dt.today() - dateutil.relativedelta.relativedelta(months=time_period)).date():
+        q = idx
+        break
+
+print("Median : ", df_new['Strip Price'][q:].median())
+print("90th Percentile : ",df_new['Strip Price'][q:].quantile(0.9))
+print("10th Percentile : ",df_new['Strip Price'][q:].quantile(0.1))
+
+
+
