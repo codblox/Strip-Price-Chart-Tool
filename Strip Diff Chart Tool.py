@@ -198,7 +198,7 @@ else :
         accrual_diff = df1['Accrual'][idx] - df2['Accrual'][idx+k]
         df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
 
-print(df_new.head())
+# print(df_new.head())
 
 # for idx in df_new.index:
 #     df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
