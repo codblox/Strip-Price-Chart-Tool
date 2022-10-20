@@ -137,18 +137,20 @@ else :
     df_new['Date'] = df1['Date']
 
 df_new['Strip Price'] = 0
+i = 0
+k = 0
 if flag:
-    i = 0
+    
     while df_new['Date'][0] != df1['Date'][i]:
         i = i+1
-    
+    k = i
     for j in range(i,df1['Strip Price'].size):
 
         df_new['Strip Price'][j-i] = df1['Strip Price'][j] - df2['Strip Price'][j-i]
 else :
-    i = 0
     while df_new['Date'][0] != df2['Date'][i]:
         i = i+1
+    k = i
     for j in range(i,df2['Strip Price'].size):
         df_new['Strip Price'][j-i] = df1['Strip Price'][j-i] - df2['Strip Price'][j]
 
@@ -182,12 +184,24 @@ c_area.update_layout(showlegend = False,
 c_area.show()
 
 df_new['Diff + Accrual'] = ''
-accrual_diff = df1['Accrual'][df1.index[-1]] - df2['Accrual'][df2.index[-1]]
-accrual_diff
+# accrual_diff = df1['Accrual'][df1.index[-1]] - df2['Accrual'][df2.index[-1]]
+# accrual_diff
 
 
-for idx in df_new.index:
-    df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+
+if flag:    
+    for idx in df_new.index:
+        accrual_diff = df1['Accrual'][idx+k] - df2['Accrual'][idx]
+        df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+else :
+    for idx in df_new.index:
+        accrual_diff = df1['Accrual'][idx] - df2['Accrual'][idx+k]
+        df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+
+print(df_new.head())
+
+# for idx in df_new.index:
+#     df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
 
 c_area = px.line(x=df_new['Date'], y=df_new['Diff + Accrual'], title="PSA.PRO - USB.PQ")
 
