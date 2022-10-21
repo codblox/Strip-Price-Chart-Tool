@@ -184,24 +184,24 @@ c_area.update_layout(showlegend = False,
 c_area.show()
 
 df_new['Diff + Accrual'] = ''
-# accrual_diff = df1['Accrual'][df1.index[-1]] - df2['Accrual'][df2.index[-1]]
-# accrual_diff
+accrual_diff = df1['Accrual'][df1.index[-1]] - df2['Accrual'][df2.index[-1]]
+accrual_diff
 
 
 
-if flag:    
-    for idx in df_new.index:
-        accrual_diff = df1['Accrual'][idx+k] - df2['Accrual'][idx]
-        df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
-else :
-    for idx in df_new.index:
-        accrual_diff = df1['Accrual'][idx] - df2['Accrual'][idx+k]
-        df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+# if flag:    
+#     for idx in df_new.index:
+#         accrual_diff = df1['Accrual'][idx+k] - df2['Accrual'][idx]
+#         df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+# else :
+#     for idx in df_new.index:
+#         accrual_diff = df1['Accrual'][idx] - df2['Accrual'][idx+k]
+#         df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
 
 # print(df_new.head())
 
-# for idx in df_new.index:
-#     df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+for idx in df_new.index:
+    df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
 
 c_area = px.line(x=df_new['Date'], y=df_new['Diff + Accrual'], title="PSA.PRO - USB.PQ")
 
@@ -231,16 +231,21 @@ c_area.show()
 end_time = dt.now()
 print('Duration: {}'.format(end_time - start_time))
 
-time_period = int(input("Time Period (for median calculation) : "))
-q = 0
-for idx in df_new.index:
-    if df_new['Date'][idx] >= (dt.today() - dateutil.relativedelta.relativedelta(months=time_period)).date():
-        q = idx
-        break
 
-print("Median : ", df_new['Strip Price'][q:].median())
-print("90th Percentile : ",df_new['Strip Price'][q:].quantile(0.9))
-print("10th Percentile : ",df_new['Strip Price'][q:].quantile(0.1))
+time_period = int(input("Time Period (for median calculation, -1 to exit) : "))
 
+while (time_period != -1) :
+
+    q = 0
+    for idx in df_new.index:
+        if df_new['Date'][idx] >= (dt.today() - dateutil.relativedelta.relativedelta(months=time_period)).date():
+            q = idx
+            break
+
+    print("Median : ", df_new['Strip Price'][q:].median())
+    print("90th Percentile : ",df_new['Strip Price'][q:].quantile(0.9))
+    print("10th Percentile : ",df_new['Strip Price'][q:].quantile(0.1))
+
+    time_period = int(input("Time Period (for median calculation) : "))
 
 
