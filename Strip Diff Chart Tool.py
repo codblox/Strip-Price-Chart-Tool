@@ -209,8 +209,8 @@ while (time_period != -1) :
     c_area.add_hline(y=df_new['Strip Price'][q:].median(), line_color='lightgreen')
     c_area.add_trace(go.Scatter(y=[df_new['Strip Price'][df_new.index[-1]]], x=[df_new['Date'][df_new.index[-1]]], mode='markers', name='Last Price'))
     if flag :    
-        c_area.add_traces(go.Scatter(x = dividendDatesStock1[t:], y=temp_list1, mode="markers", name="1", hoverinfo="skip"))
-        c_area.add_traces(go.Scatter(x = dividendDatesStock2, y = temp_list2, mode="markers", name="2", hoverinfo="skip"))
+        c_area.add_traces(go.Scatter(x = dividendDatesStock1[t:], y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+        c_area.add_traces(go.Scatter(x = dividendDatesStock2, y = temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
     else :
         c_area.add_traces(go.Scatter(x = dividendDatesStock1, y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
         c_area.add_traces(go.Scatter(x = dividendDatesStock2[t:], y= temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
