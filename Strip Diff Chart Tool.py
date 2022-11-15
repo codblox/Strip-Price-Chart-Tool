@@ -44,8 +44,7 @@ def accrualDaysUpdate(df1,dividendDatesStock1):
 
         df1['Accrual Days'][df1.index[-1]-ind] = (df1['Date'][df1.index[-1]-ind]-dividendDatesStock1[cnt]).days
 
-def accrualsTillNow(df,ticker):
-    couponAmount = float(input(f"Enter Coupon Amount for {ticker.info['symbol']} : "))
+def accrualsTillNow(df,ticker,couponAmount):
     dividend = couponAmount/360
     for ind in df.index:
         df['Accrual'][ind] = round(df['Accrual Days'][ind]*dividend , 3)
@@ -55,6 +54,9 @@ def stripPrice(df):
     for idx in df.index:
         df['Strip Price'] = round(df['Close'].astype(float) - df['Accrual'].astype(float) , 2)
 
+def stripYield(df,couponAmount):
+    df['Strip Yield'] = ''
+    df['Strip Yield'] = couponAmount/df['Strip Price']
 
 
 stock1 = input("Enter Stock 1 : ")
@@ -98,6 +100,37 @@ for idx in df2.index:
 
 dividendDatesAdd()
 
+print(f"{ticker1.info['symbol']} dividend dates : ")
+for x in dividendDatesStock1 :
+    print(x)
+    
+input1 = int(input(f"Are dividend dates missing? (1 for yes, 0 for no)")) 
+
+while input1 != 0 :
+    date = input(f"Enter dividend date (YYYY/MM/DD) : ")
+ 
+    dtime = dt.strptime(date, '%Y/%m/%d')
+    for i in range(len(dividendDatesStock1)-1):
+        if dividendDatesStock1[i] < dtime and dtime < dividendDatesStock1[i+1] :
+            dividendDatesStock1.insert(i+1, dtime)
+    input1 = int(input(f"Are dividend dates missing? (1 for yes, 0 for no)"))
+
+    
+print(f"{ticker2.info['symbol']} dividend dates : ")
+for x in dividendDatesStock2 :
+    print(x)
+    
+input2 = int(input(f"Are dividend dates missing? (1 for yes, 0 for no)")) 
+
+while input2 != 0 :
+    date = input(f"Enter dividend date (YYYY/MM/DD) : ")
+ 
+    dtime = dt.strptime(date, '%Y/%m/%d')
+    for i in range(len(dividendDatesStock2)-1):
+        if dividendDatesStock2[i] < dtime and dtime < dividendDatesStock2[i+1] :
+            dividendDatesStock2.insert(i+1, dtime)
+    input2 = int(input(f"Are dividend dates missing? (1 for yes, 0 for no)"))
+    
 def accrualDaysUpdate(df1,dividendDatesStock1):
     for ind in df1.index:
         cnt = -1
@@ -112,13 +145,19 @@ accrualDaysUpdate(df2,dividendDatesStock2)
 
 df1['Accrual'] = 0
 df2['Accrual'] = 0
-accrualsTillNow(df1,ticker1)
-accrualsTillNow(df2,ticker2)
+
+couponAmount1 = float(input(f"Enter Coupon Amount for {ticker1.info['symbol']} : "))
+couponAmount2 = float(input(f"Enter Coupon Amount for {ticker2.info['symbol']} : "))
+
+accrualsTillNow(df1,ticker1,couponAmount1)
+accrualsTillNow(df2,ticker2,couponAmount2)
 
 
 stripPrice(df1)
 stripPrice(df2)
 
+stripYield(df1, couponAmount1)
+stripYield(df2, couponAmount2)
 
 df_new = pd.DataFrame()
 
@@ -128,8 +167,6 @@ temp = ''
 if df1.size < df2.size:
     flag = False
     
-flag
-
 if flag :
     df_new['Date'] = df2['Date']
 else :
@@ -138,6 +175,7 @@ else :
 df_new['Strip Price'] = 0
 i = 0
 k = 0
+
 if flag:
     
     while df_new['Date'][0] != df1['Date'][i]:
@@ -153,6 +191,23 @@ else :
     for j in range(i,df2['Strip Price'].size):
         df_new['Strip Price'][j-i] = df1['Strip Price'][j-i] - df2['Strip Price'][j]
 
+df_new['Strip Yield'] = 0
+i = 0
+k = 0
+if flag:
+    while df_new['Date'][0] != df1['Date'][i] :
+        i = i+1
+    k = i
+    for j in range(i,df1['Strip Yield'].size):
+        df_new['Strip Yield'][j-i] = round(df1['Strip Yield'][j] - df2['Strip Yield'][j-i],4)
+        
+else :
+    while df_new['Date'][0] != df2['Date'][i]:
+        i = i+1
+    k = i
+    for j in range(i,df2['Strip Yield'].size):
+        df_new['Strip Yield'][j-i] = round(df1['Strip Yield'][j-i] - df2['Strip Yield'][j],4)
+        
 for i in df_new.index:
     df_new['Date'][i] = df_new['Date'][i].date()
 
@@ -166,96 +221,88 @@ for i in range(df_new['Date'].size):
     
     if __datetime(str(df_new['Date'][i])) in dividendDatesStock2:
         temp_list2.append(df_new['Strip Price'][i])
-
-
-time_period = int(input("Time Period in months (-1 to exit) : "))
-t = 0
-if flag:
-    while df_new['Date'][0] > dividendDatesStock1[t].date():
-        t += 1
-else :
-    while df_new['Date'][0] > dividendDatesStock2[t].date():
-        t += 1
-
-
-chart = True
-
-while (time_period != -1) :
-
-    q = 0
-    for idx in df_new.index:
-        if df_new['Date'][idx] >= (dt.today() - dateutil.relativedelta.relativedelta(months=time_period)).date():
-            q = idx
-            break
-    end_date = datetime.date.today()
-    start_date = str(end_date + dateutil.relativedelta.relativedelta(months=-time_period))
-
-    c_area = px.line(df_new, x='Date', y='Strip Price',title=c_title, range_x=[start_date,str(end_date)])
-
-    c_area.update_xaxes(
-        title_text = 'Date',
-        rangeslider_visible = True,
-        rangeselector = dict(
-            buttons = list([
-                dict(count = 1, label = '1M', step = 'month', stepmode = 'backward'),
-                dict(count = 3, label = '3M', step = 'month', stepmode = 'backward'),
-                dict(count = 6, label = '6M', step = 'month', stepmode = 'backward'),
-                dict(count = 1, label = 'YTD', step = 'year', stepmode = 'todate'),
-                dict(count = 1, label = '1Y', step = 'year', stepmode = 'backward'),
-                dict(step = 'all')])))
-    lst2 = [df_new['Strip Price'][q:].quantile(0.1)]
-    c_area.add_hline(y = df_new['Strip Price'][q:].quantile(0.9), line_color='pink')
-    c_area.add_hline(y = df_new['Strip Price'][q:].quantile(0.1), line_color='cyan')
-    c_area.add_hline(y=df_new['Strip Price'][q:].median(), line_color='lightgreen')
-    c_area.add_trace(go.Scatter(y=[df_new['Strip Price'][df_new.index[-1]]], x=[df_new['Date'][df_new.index[-1]]], mode='markers', name='Last Price'))
-    if flag :    
-        c_area.add_traces(go.Scatter(x = dividendDatesStock1[t:], y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
-        c_area.add_traces(go.Scatter(x = dividendDatesStock2, y = temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
-    else :
-        c_area.add_traces(go.Scatter(x = dividendDatesStock1, y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
-        c_area.add_traces(go.Scatter(x = dividendDatesStock2[t:], y= temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
-
-    #     c_area = px.line(y=lst2)
-    c_area.update_traces(hovertemplate=None)
-    c_area.update_yaxes(title_text = 'Price', tickprefix = '$')
-    c_area.update_layout(showlegend = False,
-        title = {
-            'text': f"{ticker1.info['symbol']} - {ticker2.info['symbol']}",
-            'y':0.9,
-            'x':0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'}, hovermode="x unified")
-    c_area.update_layout(showlegend=True)
-    c_area.show()
     
-    print("Median : ", df_new['Strip Price'][q:].median())
-    print("90th Percentile : ",df_new['Strip Price'][q:].quantile(0.9))
-    print("10th Percentile : ",df_new['Strip Price'][q:].quantile(0.1))
-    
-    
-    if chart:
-        chart = False
-        df_new['Diff + Accrual'] = ''
-        accrual_diff = df1['Accrual'][df1.index[-1]] - df2['Accrual'][df2.index[-1]]
-        accrual_diff
+
+df_new['Diff + Accrual'] = ''
+accrual_diff = df1['Accrual'][df1.index[-1]] - df2['Accrual'][df2.index[-1]]
+chartType = int(input(f"Which chart do you want to see? (1 - Strip Price Difference, 2- Strip Yield Difference, 3- Strip Price Difference + Accrual, 0- Exit)"))
+
+while chartType != 0 :
+    if chartType == 1:
+        time_period = int(input("Time Period in months (-1 to exit) : "))
+        t = 0
+        if flag:
+            while df_new['Date'][0] > dividendDatesStock1[t].date():
+                t += 1
+        else :
+            while df_new['Date'][0] > dividendDatesStock2[t].date():
+                t += 1
 
 
+#         chart = True
 
-        # if flag:    
-        #     for idx in df_new.index:
-        #         accrual_diff = df1['Accrual'][idx+k] - df2['Accrual'][idx]
-        #         df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
-        # else :
-        #     for idx in df_new.index:
-        #         accrual_diff = df1['Accrual'][idx] - df2['Accrual'][idx+k]
-        #         df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
+        while (time_period != -1) :
 
-        # print(df_new.head())
+            q = 0
+            for idx in df_new.index:
+                if df_new['Date'][idx] >= (dt.today() - dateutil.relativedelta.relativedelta(months=time_period)).date():
+                    q = idx
+                    break
+            end_date = datetime.date.today()
+            start_date = str(end_date + dateutil.relativedelta.relativedelta(months=-time_period))
 
+            c_area = px.line(df_new, x='Date', y='Strip Price',title=c_title, range_x=[start_date,str(end_date)])
+
+            c_area.update_xaxes(
+                title_text = 'Date',
+                rangeslider_visible = True,
+                rangeselector = dict(
+                    buttons = list([
+                        dict(count = 1, label = '1M', step = 'month', stepmode = 'backward'),
+                        dict(count = 3, label = '3M', step = 'month', stepmode = 'backward'),
+                        dict(count = 6, label = '6M', step = 'month', stepmode = 'backward'),
+                        dict(count = 1, label = 'YTD', step = 'year', stepmode = 'todate'),
+                        dict(count = 1, label = '1Y', step = 'year', stepmode = 'backward'),
+                        dict(step = 'all')])))
+            lst2 = [df_new['Strip Price'][q:].quantile(0.1)]
+            c_area.add_hline(y = df_new['Strip Price'][q:].quantile(0.9), line_color='pink')
+            c_area.add_hline(y = df_new['Strip Price'][q:].quantile(0.1), line_color='cyan')
+            c_area.add_hline(y=df_new['Strip Price'][q:].median(), line_color='lightgreen')
+            c_area.add_trace(go.Scatter(y=[df_new['Strip Price'][df_new.index[-1]]], x=[df_new['Date'][df_new.index[-1]]], mode='markers', name='Last Price'))
+            if flag :    
+                c_area.add_traces(go.Scatter(x = dividendDatesStock1[t:], y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+                c_area.add_traces(go.Scatter(x = dividendDatesStock2, y = temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+            else :
+                c_area.add_traces(go.Scatter(x = dividendDatesStock1, y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+                c_area.add_traces(go.Scatter(x = dividendDatesStock2[t:], y= temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+
+            #     c_area = px.line(y=lst2)
+            c_area.update_traces(hovertemplate=None)
+            c_area.update_yaxes(title_text = 'Price', tickprefix = '$')
+            c_area.update_layout(showlegend = False,
+                title = {
+                    'text': f"{ticker1.info['symbol']} - {ticker2.info['symbol']}",
+                    'y':0.9,
+                    'x':0.5,
+                    'xanchor': 'center',
+                    'yanchor': 'top'}, hovermode="x unified")
+            c_area.update_layout(showlegend=True)
+            c_area.show()
+
+            print("Median : ", df_new['Strip Price'][q:].median())
+            print("90th Percentile : ",df_new['Strip Price'][q:].quantile(0.9))
+            print("10th Percentile : ",df_new['Strip Price'][q:].quantile(0.1))
+            
+            time_period = int(input("Time Period (-1 to exit) : "))
+            
+        chartType = int(input(f"Which chart do you want to see? (1 - Strip Price Difference, 2- Strip Yield Difference, 3- Strip Price Difference + Accrual, 0- Exit)"))
+
+    elif chartType == 3 :
+        
         for idx in df_new.index:
             df_new['Diff + Accrual'][idx] = round(df_new['Strip Price'][idx] + accrual_diff, 2)
 
-        c_ar = px.line(x=df_new['Date'], y=df_new['Diff + Accrual'], title="PSA.PRO - USB.PQ")
+        c_ar = px.line(x=df_new['Date'], y=df_new['Diff + Accrual'], title=c_title)
 
         c_ar.update_xaxes(
             title_text = 'Date',
@@ -278,25 +325,98 @@ while (time_period != -1) :
                 'yanchor': 'top'}, hovermode='x unified')
 
         c_ar.show()
+            
+        chartType = int(input(f"Which chart do you want to see? (1 - Strip Price Difference, 2- Strip Yield Difference, 3- Strip Price Difference + Accrual, 0- Exit)"))
+
+#             dict_1 = {}
+#             for i in range(ticker1.dividends.size):
+#                 dict_1[str(ticker1.dividends.index[i])[:10]] = ticker1.dividends[i]
+#             print(f"{ticker1.info['symbol']} dividend amounts :")
+
+#             for key in dict_1:
+#                 print(key , '->', dict_1[key])
+
+#             dict_2 = {}
+#             print()
+#             print()
+#             for i in range(ticker2.dividends.size):
+#                 dict_2[str(ticker2.dividends.index[i])[:10]] = ticker2.dividends[i]
+#             print(f"{ticker2.info['symbol']} dividend amounts :")
+
+#             for key in dict_2:
+#                 print(key , '->', dict_2[key])
+
+
+    elif chartType == 2:
+        time_period = int(input("Time Period in months (-1 to exit) : "))
+        t = 0
+        if flag:
+            while df_new['Date'][0] > dividendDatesStock1[t].date():
+                t += 1
+        else :
+            while df_new['Date'][0] > dividendDatesStock2[t].date():
+                t += 1
+
+
+#         chart = True
+
+        while (time_period != -1) :
+
+            q = 0
+            for idx in df_new.index:
+                if df_new['Date'][idx] >= (dt.today() - dateutil.relativedelta.relativedelta(months=time_period)).date():
+                    q = idx
+                    break
+            end_date = datetime.date.today()
+            start_date = str(end_date + dateutil.relativedelta.relativedelta(months=-time_period))
+
+            c_area = px.line(df_new, x='Date', y='Strip Yield',title=c_title, range_x=[start_date,str(end_date)])
+
+            c_area.update_xaxes(
+                title_text = 'Date',
+                rangeslider_visible = True,
+                rangeselector = dict(
+                    buttons = list([
+                        dict(count = 1, label = '1M', step = 'month', stepmode = 'backward'),
+                        dict(count = 3, label = '3M', step = 'month', stepmode = 'backward'),
+                        dict(count = 6, label = '6M', step = 'month', stepmode = 'backward'),
+                        dict(count = 1, label = 'YTD', step = 'year', stepmode = 'todate'),
+                        dict(count = 1, label = '1Y', step = 'year', stepmode = 'backward'),
+                        dict(step = 'all')])))
+            lst2 = [df_new['Strip Yield'][q:].quantile(0.1)]
+            c_area.add_hline(y = df_new['Strip Yield'][q:].quantile(0.9), line_color='pink')
+            c_area.add_hline(y = df_new['Strip Yield'][q:].quantile(0.1), line_color='cyan')
+            c_area.add_hline(y=df_new['Strip Yield'][q:].median(), line_color='lightgreen')
+            c_area.add_trace(go.Scatter(y=[df_new['Strip Yield'][df_new.index[-1]]], x=[df_new['Date'][df_new.index[-1]]], mode='markers', name='Last Yield Difference'))
+#             if flag :    
+#                 c_area.add_traces(go.Scatter(x = dividendDatesStock1[t:], y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+#                 c_area.add_traces(go.Scatter(x = dividendDatesStock2, y = temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+#             else :
+#                 c_area.add_traces(go.Scatter(x = dividendDatesStock1, y=temp_list1, mode="markers", name=f"{ticker1.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+#                 c_area.add_traces(go.Scatter(x = dividendDatesStock2[t:], y= temp_list2, mode="markers", name=f"{ticker2.info['symbol']} Ex-Dividend Dates", hoverinfo="skip"))
+
+            #     c_area = px.line(y=lst2)
+            c_area.update_traces(hovertemplate=None)
+            c_area.update_yaxes(title_text = 'Yield')
+            c_area.update_layout(showlegend = False,
+                title = {
+                    'text': f"{ticker1.info['symbol']} - {ticker2.info['symbol']}",
+                    'y':0.9,
+                    'x':0.5,
+                    'xanchor': 'center',
+                    'yanchor': 'top'}, hovermode="x unified")
+            c_area.update_layout(showlegend=True)
+            c_area.show()
+
+            print("Median : ", df_new['Strip Yield'][q:].median())
+            print("90th Percentile : ",df_new['Strip Yield'][q:].quantile(0.9))
+            print("10th Percentile : ",df_new['Strip Yield'][q:].quantile(0.1))
+            
+            time_period = int(input("Time Period (-1 to exit) : "))
+            
+        chartType = int(input(f"Which chart do you want to see? (1 - Strip Price Difference, 2- Strip Yield Difference, 3- Strip Price Difference + Accrual, 0- Exit)"))
         
-        dict_1 = {}
-        for i in range(ticker1.dividends.size):
-            dict_1[str(ticker1.dividends.index[i])[:10]] = ticker1.dividends[i]
-        print(f"{ticker1.info['symbol']} dividend amounts :")
-        
-        for key in dict_1:
-            print(key , '->', dict_1[key])
-
-        dict_2 = {}
-        print()
-        print()
-        for i in range(ticker2.dividends.size):
-            dict_2[str(ticker2.dividends.index[i])[:10]] = ticker2.dividends[i]
-        print(f"{ticker2.info['symbol']} dividend amounts :")
-        
-        for key in dict_2:
-            print(key , '->', dict_2[key])
-
-    time_period = int(input("Time Period (-1 to exit) : "))
-
-
+    else :
+        break
+    
+    
